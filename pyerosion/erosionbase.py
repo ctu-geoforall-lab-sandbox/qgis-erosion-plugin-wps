@@ -69,10 +69,30 @@ class ErosionBase:
     def import_data(self):
         import grass.script as gscript
         import grass.script.setup as gsetup
+        from osgeo import ogr, osr, gdal
 
         ###########
         # launch session
         gsetup.init(gisbase, gisdb, location, mapset)
+        file_type = ''
+
+        #Vector test
+        try:
+        	src_ds = ogr.Open(myfile)
+        	if not src_ds is None:
+        		file_type = 'vector'
+        except:
+        	pass
+
+        #Raster test
+        if file_type != 'vector':
+        	try:
+        		src_ds = gdal.Open(myfile)
+        		if not src_ds is None:
+        			file_type = 'raster'
+        	except:
+        		pass
+
 
     def export_data(self):
         #Remove all temp directory
