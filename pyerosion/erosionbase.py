@@ -66,7 +66,7 @@ class ErosionBase:
             print 'Created location %s' % location_path
 
 
-    def import_data(self):
+    def import_data(self, myfile):
         import grass.script as gscript
         import grass.script.setup as gsetup
         from osgeo import ogr, osr, gdal
@@ -92,6 +92,30 @@ class ErosionBase:
         			file_type = 'raster'
         	except:
         		pass
+
+        #import
+        if file_type == 'raster':
+        	raster_map='raster_map'
+        	r.external(input=myfile, output=raster_map)
+        elif file_type == 'vector':
+        	vector_map = 'vector_map'
+        	g.message("Importing SHAPE file ...")
+        	ogrimport = Module('v.in.ogr')
+        	ogrimport(myfile, output=vector_map)
+        else:
+        	pass
+
+        #messages
+        gscript.message('Current GRASS GIS 7 environment:')
+        print(gscript.gisenv())
+
+        gscript.message('Available raster maps:')
+        for rast in gscript.list_strings(type = 'rast'):
+            print(rast)
+
+        gscript.message('Available vector maps:')
+        for vect in gscript.list_strings(type = 'vect'):
+            print(vect)
 
 
     def export_data(self):
