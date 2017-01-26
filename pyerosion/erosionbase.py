@@ -15,6 +15,7 @@ class ErosionBase:
         import shutil
         import binascii
         import tempfile
+        import grass.script.setup as gsetup
 
         ########### SOFTWARE
         grass7bin = grass7bin_win
@@ -65,15 +66,14 @@ class ErosionBase:
         else:
             print 'Created location %s' % location_path
 
-
-    def import_data(self, myfile):
-        import grass.script as gscript
-        import grass.script.setup as gsetup
-        from osgeo import ogr, osr, gdal
-
         ###########
         # launch session
         gsetup.init(gisbase, gisdb, location, mapset)
+
+    def import_data(self, myfile):
+        import grass.script as gscript
+        from osgeo import ogr, osr, gdal
+
         file_type = ''
 
         #Vector test
