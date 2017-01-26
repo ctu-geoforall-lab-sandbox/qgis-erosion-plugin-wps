@@ -1,50 +1,60 @@
 # TODO: header
 
 # Version for Windows
-grass7bin_win = r'C:\\OSGeo4W64\\bin\\grass72.bat'
 #myepsg = '5514'
 myfile = ['E:\\janza\\Documents\\grass_skola\\test_vector\\test_vector.shp', 'E:\\janza\\Documents\\grass_skola\\raster_test.tif']
 #myfile = 'E:\\janza\\Documents\\grass_skola\\test_vector\\test_vector.shp'
 #myfile = 'E:\\janza\\Documents\\grass_skola\\raster_test.tif'
 
-class ErosionBase:
-    def __init__(self):
-        ###########
-        import os
-        import sys
-        import subprocess
-        import shutil
-        import binascii
-        import tempfile
-        import grass.script.setup as gsetup
+import os
+import sys
+import subprocess
+import shutil
+import tempfile
+import binascii
 
+def findGRASS():
+    ########### SOFTWARE
+    if sys.platform == 'win32':
+        grass7bin = r'C:\\OSGeo4W64\\bin\\grass72.bat'
+    else:
+        grass7bin = '/usr/bin/grass'
+    startcmd = [grass7bin, '--config', 'path']
+
+    p = subprocess.Popen(startcmd,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = p.communicate()
+
+    if p.returncode != 0:
+        raise ErosionError("ERROR: Cannot find GRASS GIS 7 start script "
+                           "({cmd}: {reason})".format(cmd=startcmd, reason=err))
+
+    str_out = out.decode("utf-8")
+    gisbase = str_out.rstrip(os.linesep)
+
+    # Set GISBASE environment variable
+    os.environ['GISBASE'] = gisbase
+    # define GRASS-Python environment
+    sys.path.append(os.path.join(gisbase, "etc", "python"))
+
+    return grass7bin
+
+grass7bin = findGRASS()
+import grass.script as gscript
+from grass.script import setup as gsetup
+from grass.exceptions import ScriptError
+
+class ErosionError(StandardError):
+    pass
+
+class ErosionBase:
+    def __init__(self, epsg='5514'):
+        ###########
         self.file_type = None
         self.grass_layer_types = {}
-        ########### SOFTWARE
-        grass7bin = grass7bin_win
 
-        startcmd = [grass7bin, '--config', 'path']
-
-        p = subprocess.Popen(startcmd, shell=True,
-        					 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = p.communicate()
-
-        if p.returncode != 0:
-            print >>sys.stderr, "ERROR: Cannot find GRASS GIS 7 start script (%s)" % startcmd
-            sys.exit(-1)
-        str_out = out.decode("utf-8")
-        gisbase = str_out
-        os.environ['GRASS_SH'] = os.path.join(gisbase, 'msys', 'bin', 'sh.exe')
-
-        # Set GISBASE environment variable
-        os.environ['GISBASE'] = gisbase
-        # define GRASS-Python environment
-        gpydir = os.path.join(gisbase, "etc", "python")
-        sys.path.append(gpydir)
         gisdb = os.path.join(tempfile.gettempdir(), 'grassdata')
-        try:
-            os.stat(gisdb)
-        except:
+        if not os.path.isdir(gisdb):
             os.mkdir(gisdb)
 
         # location/mapset: use random names for batch jobs
@@ -54,45 +64,46 @@ class ErosionBase:
         location_path = os.path.join(gisdb, location)
 
         # Create new location (we assume that grass7bin is in the PATH)
-        #  from EPSG code:
-        #startcmd = grass7bin + ' -c epsg:' + myepsg + ' -e ' + location_path
-        #  from SHAPE or GeoTIFF file
-        startcmd = grass7bin + ' -c ' + myfile + ' -e ' + location_path
 
+        #  from EPSG code:
+        startcmd = [grass7bin, '-c', 'EPSG:{}'.format(epsg), location_path]
         p = subprocess.Popen(startcmd, shell=True,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         if p.returncode != 0:
-            print >>sys.stderr, 'ERROR: %s' % err
-            print >>sys.stderr, 'ERROR: Cannot generate location (%s)' % startcmd
-            sys.exit(-1)
-        else:
-            print 'Created location %s' % location_path
+            raise ErosionError('ERROR: Cannot generate location ({})'.format(err))
 
+        # try:
+        #     gscript.create_location(gisdb, location, epsg, overwrite=True)
+        # except ScriptError as e:
+        #     raise ErosionError('{}'.format(e))
+        
         ###########
         # launch session
-        gsetup.init(gisbase, gisdb, location, mapset)
+        gsetup.init(os.environ['GISBASE'], gisdb, location, mapset)
 
     def import_files(files):
-    	for i in range(len(files)):
-    		file_type = file_type_test(files[i])
-    		file_name = os.path.basename(files[i]).split(".")[0]
-    		assert file_name not in grass_layer_types, "Layer {} already imported".format(file_name)
-    		grass_layer_types[file_name] = file_type
-    		print(grass_layer_types)
-    		import_data(files[i], file_type, file_name)
+        for file_name in files:
+            file_type = _file_type_test(file_name)
+            import_data(file_name, file_type)
 
-    def import_data(self, file, file_type, file_name):
-    	#import
-    	if file_type == 'raster':
-    		r.external(input=file, output=file_name)
-    	elif file_type == 'vector':
-    		g.message("Importing SHAPE file ...")
-    		ogrimport = Module('v.in.ogr')
-    		ogrimport(file, output=file_name)
-    	else:
-    		pass
+    def import_data(self, file_name, file_type):
+        map_name = os.path.splitext(os.path.basename(file_name))[0]
+        if map_name in self.grass_layer_types:
+            return # TODO: how to handler raster and vector map with the same name
 
+        # import
+        if file_type == 'raster':
+            gscript.run_command('r.external', input=file_name, output=map_name)
+        elif file_type == 'vector':
+            # gscript.message("Importing SHAPE file ...")
+            gscript.run_command('v.in.ogr', input=file_name, output=map_name)
+        else:
+            raise ErosionError("Unknown file type")
+
+        self.grass_layer_types[map_name] = file_type
+
+    def test(self):
         #messages
         gscript.message('Current GRASS GIS 7 environment:')
         print(gscript.gisenv())
@@ -105,19 +116,18 @@ class ErosionBase:
         for vect in gscript.list_strings(type = 'vect'):
             print(vect)
 
-
     def export_data(self, grass_file, o_path, o_name):
-    	out_file = os.path.join(o_path, o_name)
-    	#v.out_ogr(input=in_file, output=out_file, type='auto', format='ESRI_Shapefile')
+        out_file = os.path.join(o_path, o_name)
+        #v.out_ogr(input=in_file, output=out_file, type='auto', format='ESRI_Shapefile')
 
-def file_type_test(file):
-    #Vector test
-    src_ds = ogr.Open(file)
-    if src_ds:
-        file_type = 'vector'
-    #Raster test
-    if not file_type:
-        src_ds = gdal.Open(file)
-        if src_ds:
-            file_type = 'raster'
-    return file_type
+    def _file_type_test(self, filename):
+        # vector test
+        src_ds = ogr.Open(filename)
+        if src_ds is not None:
+            return 'vector'
+        # raster test
+        src_ds = gdal.Open(filename)
+        if src_ds is not None:
+            return 'raster'
+
+        raise ErosionError("Uknown file type")
