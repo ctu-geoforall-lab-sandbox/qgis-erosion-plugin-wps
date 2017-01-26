@@ -3,8 +3,10 @@
 # Version for Windows
 grass7bin_win = r'C:\\OSGeo4W64\\bin\\grass72.bat'
 #myepsg = '5514'
-myfile = 'E:\\janza\\Documents\\grass_skola\\test_vector\\test_vector.shp'
+myfile = ['E:\\janza\\Documents\\grass_skola\\test_vector\\test_vector.shp', 'E:\\janza\\Documents\\grass_skola\\raster_test.tif']
+#myfile = 'E:\\janza\\Documents\\grass_skola\\test_vector\\test_vector.shp'
 #myfile = 'E:\\janza\\Documents\\grass_skola\\raster_test.tif'
+grass_files = [][]
 
 class ErosionBase:
     def __init__(self):
@@ -17,6 +19,7 @@ class ErosionBase:
         import tempfile
         import grass.script.setup as gsetup
 
+        self.file_type = None
         ########### SOFTWARE
         grass7bin = grass7bin_win
 
@@ -70,40 +73,22 @@ class ErosionBase:
         # launch session
         gsetup.init(gisbase, gisdb, location, mapset)
 
-    def import_data(self, myfile):
-        import grass.script as gscript
-        from osgeo import ogr, osr, gdal
+    def import_files(self, files):
+    	for i in files:
+    		file_type = file_type_test(i)
+    		file_name = os.path.basename(i).split(".")[0]
+    		import_data(i, file_type, file_name)
 
-        file_type = ''
-
-        #Vector test
-        try:
-        	src_ds = ogr.Open(myfile)
-        	if not src_ds is None:
-        		file_type = 'vector'
-        except:
-        	pass
-
-        #Raster test
-        if file_type != 'vector':
-        	try:
-        		src_ds = gdal.Open(myfile)
-        		if not src_ds is None:
-        			file_type = 'raster'
-        	except:
-        		pass
-
-        #import
-        if file_type == 'raster':
-        	raster_map='raster_map'
-        	r.external(input=myfile, output=raster_map)
-        elif file_type == 'vector':
-        	vector_map = 'vector_map'
-        	g.message("Importing SHAPE file ...")
-        	ogrimport = Module('v.in.ogr')
-        	ogrimport(myfile, output=vector_map)
-        else:
-        	pass
+    def import_data(self, file, file_type, file_name):
+    	#import
+    	if file_type == 'raster':
+    		r.external(input=file, output=file_name)
+    	elif file_type == 'vector':
+    		g.message("Importing SHAPE file ...")
+    		ogrimport = Module('v.in.ogr')
+    		ogrimport(file, output=file_name)
+    	else:
+    		pass
 
         #messages
         gscript.message('Current GRASS GIS 7 environment:')
@@ -118,6 +103,18 @@ class ErosionBase:
             print(vect)
 
 
-    def export_data(self):
-        #Remove all temp directory
-        shutil.rmtree(gisdb)
+    def export_data(self, grass_file, o_path, o_name):
+    	out_file = os.path.join(o_path, o_name)
+    	#v.out_ogr(input=in_file, output=out_file, type='auto', format='ESRI_Shapefile')
+
+    def file_type_test(file):
+        #Vector test
+        src_ds = ogr.Open(file)
+        if src_ds:
+            file_type = 'vector'
+        #Raster test
+        if not file_type:
+            src_ds = gdal.Open(file)
+            if src_ds:
+                file_type = 'raster'
+        return file_type
