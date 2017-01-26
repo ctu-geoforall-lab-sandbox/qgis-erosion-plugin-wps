@@ -6,7 +6,6 @@ grass7bin_win = r'C:\\OSGeo4W64\\bin\\grass72.bat'
 myfile = ['E:\\janza\\Documents\\grass_skola\\test_vector\\test_vector.shp', 'E:\\janza\\Documents\\grass_skola\\raster_test.tif']
 #myfile = 'E:\\janza\\Documents\\grass_skola\\test_vector\\test_vector.shp'
 #myfile = 'E:\\janza\\Documents\\grass_skola\\raster_test.tif'
-grass_files = [][]
 
 class ErosionBase:
     def __init__(self):
@@ -20,6 +19,7 @@ class ErosionBase:
         import grass.script.setup as gsetup
 
         self.file_type = None
+        self.grass_layer_types = {}
         ########### SOFTWARE
         grass7bin = grass7bin_win
 
@@ -73,11 +73,14 @@ class ErosionBase:
         # launch session
         gsetup.init(gisbase, gisdb, location, mapset)
 
-    def import_files(self, files):
-    	for i in files:
-    		file_type = file_type_test(i)
-    		file_name = os.path.basename(i).split(".")[0]
-    		import_data(i, file_type, file_name)
+    def import_files(files):
+    	for i in range(len(files)):
+    		file_type = file_type_test(files[i])
+    		file_name = os.path.basename(files[i]).split(".")[0]
+    		assert file_name not in grass_layer_types, "Layer {} already imported".format(file_name)
+    		grass_layer_types[file_name] = file_type
+    		print(grass_layer_types)
+    		import_data(files[i], file_type, file_name)
 
     def import_data(self, file, file_type, file_name):
     	#import
@@ -107,14 +110,14 @@ class ErosionBase:
     	out_file = os.path.join(o_path, o_name)
     	#v.out_ogr(input=in_file, output=out_file, type='auto', format='ESRI_Shapefile')
 
-    def file_type_test(file):
-        #Vector test
-        src_ds = ogr.Open(file)
+def file_type_test(file):
+    #Vector test
+    src_ds = ogr.Open(file)
+    if src_ds:
+        file_type = 'vector'
+    #Raster test
+    if not file_type:
+        src_ds = gdal.Open(file)
         if src_ds:
-            file_type = 'vector'
-        #Raster test
-        if not file_type:
-            src_ds = gdal.Open(file)
-            if src_ds:
-                file_type = 'raster'
-        return file_type
+            file_type = 'raster'
+    return file_type
