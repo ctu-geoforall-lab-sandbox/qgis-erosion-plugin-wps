@@ -63,24 +63,13 @@ class ErosionBase:
         mapset   = 'PERMANENT'
         location_path = os.path.join(gisdb, location)
 
-        # Create new location (we assume that grass7bin is in the PATH)
-
-        #  from EPSG code:
-        startcmd = [grass7bin, '-c', 'EPSG:{}'.format(epsg), location_path]
-        p = subprocess.Popen(startcmd, shell=True,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = p.communicate()
-        if p.returncode != 0:
-            raise ErosionError('ERROR: Cannot generate location ({})'.format(err))
-
-        # try:
-        #     gscript.create_location(gisdb, location, epsg, overwrite=True)
-        # except ScriptError as e:
-        #     raise ErosionError('{}'.format(e))
-        
-        ###########
-        # launch session
+        # Create new location
+        # GRASS session must be initialized first
         gsetup.init(os.environ['GISBASE'], gisdb, location, mapset)
+        try:
+            gscript.create_location(gisdb, location, epsg, overwrite=True)
+        except ScriptError as e:
+            raise ErosionError('{}'.format(e))
 
     def import_files(files):
         for file_name in files:
