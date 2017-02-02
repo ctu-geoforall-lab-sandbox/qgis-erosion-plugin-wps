@@ -70,6 +70,10 @@ class ErosionBase:
         # Be quiet, print only error messages
         os.environ['GRASS_VERBOSE'] = '0'
 
+    def __del__(self):
+        # TODO: smazat adresar grassdata/location
+        pass
+
     def import_files(self, files):
         for file_name in files:
             file_type = self._file_type_test(file_name)
@@ -115,10 +119,11 @@ class ErosionBase:
         # vector test
         src_ds = ogr.Open(filename)
         if src_ds is not None:
+            # test if geometry is available
             return 'vector'
         # raster test
         src_ds = gdal.Open(filename)
         if src_ds is not None:
             return 'raster'
 
-        raise ErosionError("Uknown file type")
+        raise ErosionError("Unknown file type")
