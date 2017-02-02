@@ -1,11 +1,5 @@
 # TODO: header
 
-# Version for Windows
-#myepsg = '5514'
-myfile = ['E:\\janza\\Documents\\grass_skola\\test_vector\\test_vector.shp', 'E:\\janza\\Documents\\grass_skola\\raster_test.tif']
-#myfile = 'E:\\janza\\Documents\\grass_skola\\test_vector\\test_vector.shp'
-#myfile = 'E:\\janza\\Documents\\grass_skola\\raster_test.tif'
-
 import os
 import sys
 import subprocess
@@ -42,7 +36,9 @@ def findGRASS():
 grass7bin = findGRASS()
 import grass.script as gscript
 from grass.script import setup as gsetup
-from grass.exceptions import ScriptError
+from grass.exceptions import ScriptError, CalledModuleError
+
+from osgeo import ogr, gdal
 
 class ErosionError(StandardError):
     pass
@@ -71,10 +67,13 @@ class ErosionBase:
         except ScriptError as e:
             raise ErosionError('{}'.format(e))
 
-    def import_files(files):
+        # Be quiet, print only error messages
+        os.environ['GRASS_VERBOSE'] = '0'
+
+    def import_files(self, files):
         for file_name in files:
-            file_type = _file_type_test(file_name)
-            import_data(file_name, file_type)
+            file_type = self._file_type_test(file_name)
+            self.import_data(file_name, file_type)
 
     def import_data(self, file_name, file_type):
         map_name = os.path.splitext(os.path.basename(file_name))[0]
@@ -82,28 +81,31 @@ class ErosionBase:
             return # TODO: how to handler raster and vector map with the same name
 
         # import
-        if file_type == 'raster':
-            gscript.run_command('r.external', input=file_name, output=map_name)
-        elif file_type == 'vector':
-            # gscript.message("Importing SHAPE file ...")
-            gscript.run_command('v.in.ogr', input=file_name, output=map_name)
-        else:
-            raise ErosionError("Unknown file type")
+        try:
+            if file_type == 'raster':
+                gscript.run_command('r.external', input=file_name, output=map_name)
+            elif file_type == 'vector':
+                # gscript.message("Importing SHAPE file ...")
+                gscript.run_command('v.in.ogr', input=file_name, output=map_name)
+            else:
+                raise ErosionError("Unknown file type")
+        except CalledModuleError as e:
+            raise ErosionError('{}'.format(e))
 
         self.grass_layer_types[map_name] = file_type
 
     def test(self):
         #messages
-        gscript.message('Current GRASS GIS 7 environment:')
+        print('Current GRASS GIS 7 environment:')
         print(gscript.gisenv())
 
-        gscript.message('Available raster maps:')
+        print('Available raster maps:')
         for rast in gscript.list_strings(type = 'rast'):
-            print(rast)
+            print('{}{}'.format(' ' * 4, rast))
 
-        gscript.message('Available vector maps:')
+        print('Available vector maps:')
         for vect in gscript.list_strings(type = 'vect'):
-            print(vect)
+            print('{}{}'.format(' ' * 4, vect))
 
     def export_data(self, grass_file, o_path, o_name):
         out_file = os.path.join(o_path, o_name)
