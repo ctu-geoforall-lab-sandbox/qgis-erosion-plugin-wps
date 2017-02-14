@@ -34,6 +34,7 @@ def findGRASS():
     return grass7bin
 
 grass7bin = findGRASS()
+temp_dir = None
 import grass.script as gscript
 from grass.script import setup as gsetup
 from grass.exceptions import ScriptError, CalledModuleError
@@ -58,6 +59,7 @@ class ErosionBase:
         location = binascii.hexlify(os.urandom(string_length))
         mapset   = 'PERMANENT'
         location_path = os.path.join(gisdb, location)
+        temp_dir = gisdb
 
         # Create new location
         # GRASS session must be initialized first
@@ -71,8 +73,8 @@ class ErosionBase:
         os.environ['GRASS_VERBOSE'] = '0'
 
     def __del__(self):
-        # TODO: smazat adresar grassdata/location
-        pass
+         #Remove all temp directory
+         shutil.rmtree(temp_dir)
 
     def import_files(self, files):
         for file_name in files:
@@ -83,14 +85,14 @@ class ErosionBase:
         map_name = os.path.splitext(os.path.basename(file_name))[0]
         if map_name in self.grass_layer_types:
             return # TODO: how to handler raster and vector map with the same name
-
         # import
         try:
             if file_type == 'raster':
                 gscript.run_command('r.external', input=file_name, output=map_name)
             elif file_type == 'vector':
-                # gscript.message("Importing SHAPE file ...")
                 gscript.run_command('v.in.ogr', input=file_name, output=map_name)
+            elif file_type == 'table':
+                gscript.run_command('db.in.ogr', input=file_name, output=map_name)
             else:
                 raise ErosionError("Unknown file type")
         except CalledModuleError as e:
@@ -111,16 +113,18 @@ class ErosionBase:
         for vect in gscript.list_strings(type = 'vect'):
             print('{}{}'.format(' ' * 4, vect))
 
-    def export_data(self, grass_file, o_path, o_name):
-        out_file = os.path.join(o_path, o_name)
-        #v.out_ogr(input=in_file, output=out_file, type='auto', format='ESRI_Shapefile')
+    #def export_data(self, grass_file, o_path, o_name):
+    #    out_file = os.path.join(o_path, o_name)
+    #    gscript.run_command("v.out.ogr", output=out_file, type='auto', format='ESRI_Shapefile')
 
     def _file_type_test(self, filename):
         # vector test
         src_ds = ogr.Open(filename)
         if src_ds is not None:
-            # test if geometry is available
-            return 'vector'
+            if '.csv' in filename:
+                return 'table'
+            else:
+                return 'vector'
         # raster test
         src_ds = gdal.Open(filename)
         if src_ds is not None:
