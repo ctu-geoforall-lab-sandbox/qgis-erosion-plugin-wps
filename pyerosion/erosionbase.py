@@ -74,7 +74,8 @@ class ErosionBase:
 
     def __del__(self):
          #Remove all temp directory
-         shutil.rmtree(temp_dir)
+         #shutil.rmtree(temp_dir)
+         pass
 
     def import_files(self, files):
         for file_name in files:
@@ -113,9 +114,8 @@ class ErosionBase:
         for vect in gscript.list_strings(type = 'vect'):
             print('{}{}'.format(' ' * 4, vect))
 
-    #def export_data(self, grass_file, o_path, o_name):
-    #    out_file = os.path.join(o_path, o_name)
-    #    gscript.run_command("v.out.ogr", output=out_file, type='auto', format='ESRI_Shapefile')
+    def export_data(self, grass_file, o_path, o_name):
+        pass
 
     def _file_type_test(self, filename):
         # vector test
