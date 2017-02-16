@@ -58,10 +58,13 @@ def run (out_file):
 
     grass.run_command("g.region", vector='kpp', res=10)
 
-    grass.run_command("v.out.ogr", input='hpj_kpp_land_pov', output=out_file, type='auto')
+    grass.run_command("db.execute", sql="create table hpj_kpp_land_pov1 as select cat,HO,OP from hpj_kpp_land_pov;")
+    grass.run_command("db.execute", sql="drop table hpj_kpp_land_pov;")
+    grass.run_command("db.execute", sql="alter table hpj_kpp_land_pov1 rename to hpj_kpp_land_pov;")
 
-run('E:\\janza\\Documents\\grass_skola\\hpj_kpp_land_pov.shp')
+    grass.run_command("v.out.ogr", input='hpj_kpp_land_pov', output=out_file)
 
-
+output_file = 'E:\\janza\\Documents\\grass_skola\\hpj_kpp_land_pov.shp'
+run(output_file)
 
 er.test()
